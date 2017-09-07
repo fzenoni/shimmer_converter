@@ -2,12 +2,18 @@ shimmer_converter <- function(input_folder, output_folder) {
   
   library(data.table)
   library(dplyr)
+  library(lubridate)
   
   ## Some options to keep digits and ignore scientific notation
   options(scipen = 999, digits = 15)
   
   ## List files in input folder
   files_list <- list.files(input_folder, full.names = TRUE)
+  
+  ## Remove logfile if it exists
+  if(file.exists('logfile.txt')) {
+    file.remove('logfile.txt')
+  }
   
   ## Open connection to logfile.txt
   file_conn <- file('logfile.txt', 'a')
@@ -26,7 +32,7 @@ shimmer_converter <- function(input_folder, output_folder) {
       options(warn = 0)
     } else {
       log <- paste('File', basename(file), 'was ignored.', sep = ' ')
-      writeLines(log, file_conn)
+      # writeLines(log, file_conn)
       cat(log,'\n')
       return()
     }
@@ -39,21 +45,20 @@ shimmer_converter <- function(input_folder, output_folder) {
     rownames(data) <- NULL
     
     ## Convert from string to numeric
-    data$conductance <- as.numeric(data$conductance)
-    data$time <- as.numeric(data$time)
-    
-    ## Convert time from ms to s
-    data$time <- data$time/1000.  
-    
+    ## And convert from ms to s
+    data[, conductance := as.numeric(conductance)]
+    data[, time := as.numeric(time)/1000.]
+
     ## Addition of third column for events setting
     ## We have none but we must provide it anyway
-    data[, off := 0]
+    data$off <- 0
     
     ## Save table as text file
-    write.table(data, paste0(output_folder, basename(file), '_ledalab.txt'), sep = ' ',
+    write.table(data, paste0(output_folder, '/', basename(file), '_ledalab.txt'), sep = ' ',
       row.names = FALSE, col.names = FALSE)
     
-    log <- paste('File', basename(file), 'OK!', sep = ' ')
+    timestamp <- as.POSIXct(data[1,time], origin = '1970-01-01')
+    log <- paste(basename(file), timestamp, sep = ': ')
     writeLines(log, file_conn)
     cat(log, '\n')
     
