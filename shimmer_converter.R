@@ -10,13 +10,15 @@ shimmer_converter <- function(input_folder, output_folder) {
   ## List files in input folder
   files_list <- list.files(input_folder, full.names = TRUE)
   
+  log_path <- paste0(output_folder, 'logfile.txt')
+  
   ## Remove logfile if it exists
-  if(file.exists('logfile.txt')) {
-    file.remove('logfile.txt')
+  if(file.exists(log_path)) {
+    file.remove(log_path)
   }
   
   ## Open connection to logfile.txt
-  file_conn <- file('logfile.txt', 'a')
+  file_conn <- file(log_path, 'a')
   
   ## Beginning of workhorse function
   read_and_convert <- function(file) {
@@ -41,6 +43,15 @@ shimmer_converter <- function(input_folder, output_folder) {
       return()
     }
     
+    ## If file is malformed and does not have the 3 requested columns
+    ## exit the loop.
+    if(ncol(data) != 3) {
+      log <- paste('File', basename(file), 'was ignored.', sep = ' ')
+      # writeLines(log, file_conn)
+      cat(log,'\n')
+      return()
+    }
+    
     ## Rename columns
     colnames(data) <- c('time', 'conductance', 'BPM')
     ## Remove first row containig unit names
@@ -50,9 +61,12 @@ shimmer_converter <- function(input_folder, output_folder) {
     ## And convert from ms to s
     data[, conductance := as.numeric(conductance)]
     data[, time := as.numeric(time)/1000.]
+    
+    timestamp <- as.POSIXct(data[1,time], origin = '1970-01-01')
+    
     data[, time := time - time[1]]
     data[, BPM := as.numeric(BPM)]
-
+    
     ## Addition of third column for events setting
     ## We have none but we must provide it anyway
     data$off <- 0
@@ -66,7 +80,6 @@ shimmer_converter <- function(input_folder, output_folder) {
       basename(file), '_BPM.txt'), sep = ' ', row.names = FALSE,
       col.names = FALSE)
     
-    timestamp <- as.POSIXct(data[1,time], origin = '1970-01-01')
     log <- paste(basename(file), timestamp, sep = ': ')
     writeLines(log, file_conn)
     cat(log, '\n')
